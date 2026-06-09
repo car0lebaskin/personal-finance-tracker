@@ -1,56 +1,161 @@
 'use client';
 
-import { Sidebar } from '@/components/dashboard/sidebar';
-import { Header } from '@/components/dashboard/header';
-import { NetWorthCard } from '@/components/dashboard/net-worth-card';
-import { NetWorthChart } from '@/components/dashboard/net-worth-chart';
-import { AllocationChart } from '@/components/dashboard/allocation-chart';
-import { AccountsList } from '@/components/dashboard/accounts-list';
-import { HoldingsTable } from '@/components/dashboard/holdings-table';
-import { Recommendations } from '@/components/dashboard/recommendations';
-import { QuickStats } from '@/components/dashboard/quick-stats';
-import { ActivityFeed } from '@/components/dashboard/activity-feed';
+import { useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
+
+type Account = {
+  id: string;
+  name: string;
+  institution: string;
+  type: string;
+  balance: number;
+  currency: string;
+};
+
+const liabilityTypes = ['loan', 'credit'];
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat('en-MY', {
+    style: 'currency',
+    currency: 'MYR',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
 
 export default function DashboardPage() {
+  const router = useRouter();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function loadAccounts() {
+      const { data: sessionData } = await supabase.auth.getSession();
+
+      if (!sessionData.session) {
+        router.push('/login');
+        return;
+      }
+
+      setEmail(sessionData.session.user.email || '');
+
+      const { data, error } = await supabase
+        .from('accounts')
+        .select('id, name, institution, type, balance, currency')
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setAccounts(data as Account[]);
+      }
+
+      setLoading(false);
+    }
+
+    loadAccounts();
+  }, [router]);
+
+  const totals = useMemo(() => {
+    const assets = accounts
+      .filter((account) => !liabilityTypes.includes(account.type))
+      .reduce((sum, account) => sum + Number(account.balance), 0);
+
+    const liabilities = accounts
+      .filter((account) => liabilityTypes.includes(account.type))
+      .reduce((sum, account) => sum + Number(account.balance), 0);
+
+    const cash = accounts
+      .filter((account) => ['checking', 'savings', 'cash'].includes(account.type))
+      .reduce((sum, account) => sum + Number(account.balance), 0);
+
+    const investments = accounts
+      .filter((account) => ['investment', 'crypto', 'retirement'].includes(account.type))
+      .reduce((sum, account) => sum + Number(account.balance), 0);
+
+    return { assets, liabilities, cash, investments, netWorth: assets - liabilities };
+  }, [accounts]);
+
+  async function handleLogout() {
+    await supabase.auth.signOut();
+    router.push('/login');
+  }
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </main>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen bg-background">
-      <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0">
-        <Header />
-        <main className="flex-1 p-4 md:p-6 space-y-6">
-
-          {/* Row 1: Net Worth hero + Quick Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4">
-            <NetWorthCard />
-            <div className="lg:col-span-3">
-              <QuickStats />
-            </div>
+    <main className="min-h-screen bg-background p-4 md:p-8">
+      <div className="mx-auto max-w-6xl space-y-6">
+        <header className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-sm text-muted-foreground">{email}</p>
+            <h1 className="text-3xl font-semibold tracking-tight">Personal Finance Tracker</h1>
           </div>
 
-          {/* Row 2: Net Worth Chart spanning full */}
-          <NetWorthChart />
-
-          {/* Row 3: Allocation + Accounts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <AllocationChart />
-            <div className="lg:col-span-2">
-              <AccountsList />
-            </div>
+          <div className="flex gap-2">
+            <button onClick={() => router.push('/accounts')} className="rounded-lg bg-primary px-4 py-2 text-primary-foreground font-medium">
+              Add account
+            </button>
+            <button onClick={handleLogout} className="rounded-lg border px-4 py-2 font-medium">
+              Logout
+            </button>
           </div>
+        </header>
 
-          {/* Row 4: Holdings table — full width */}
-          <HoldingsTable />
-
-          {/* Row 5: Recommendations + Activity */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2">
-              <Recommendations />
-            </div>
-            <ActivityFeed />
+        <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div className="rounded-2xl border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Net worth</p>
+            <p className="text-3xl font-semibold mt-2">{formatCurrency(totals.netWorth)}</p>
           </div>
+          <div className="rounded-2xl border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Assets</p>
+            <p className="text-2xl font-semibold mt-2">{formatCurrency(totals.assets)}</p>
+          </div>
+          <div className="rounded-2xl border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Liabilities</p>
+            <p className="text-2xl font-semibold mt-2">{formatCurrency(totals.liabilities)}</p>
+          </div>
+          <div className="rounded-2xl border bg-card p-5">
+            <p className="text-sm text-muted-foreground">Cash</p>
+            <p className="text-2xl font-semibold mt-2">{formatCurrency(totals.cash)}</p>
+          </div>
+        </section>
 
-        </main>
+        <section className="rounded-2xl border bg-card">
+          <div className="p-5 border-b">
+            <h2 className="text-xl font-semibold">Accounts</h2>
+            <p className="text-sm text-muted-foreground mt-1">Manual balances from your Supabase database.</p>
+          </div>
+          <div className="divide-y">
+            {accounts.length === 0 ? (
+              <div className="p-5 text-muted-foreground">
+                No accounts yet. Add Maybank, UOB, EPF, Moomoo, Luno, Binance, Unit Trusts, Property, or Loans.
+              </div>
+            ) : (
+              accounts.map((account) => (
+                <div key={account.id} className="p-5 flex items-center justify-between gap-4">
+                  <div>
+                    <p className="font-medium">{account.name}</p>
+                    <p className="text-sm text-muted-foreground">{account.institution} · {account.type}</p>
+                  </div>
+                  <p className="font-semibold">{formatCurrency(Number(account.balance))}</p>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="rounded-2xl border bg-card p-5">
+          <h2 className="text-xl font-semibold">Investments</h2>
+          <p className="text-3xl font-semibold mt-2">{formatCurrency(totals.investments)}</p>
+          <p className="text-sm text-muted-foreground mt-1">Includes investment, crypto, and retirement account types.</p>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
