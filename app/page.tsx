@@ -8,11 +8,21 @@ import { AlertTriangle, ArrowUpRight, BarChart3, Coins, CreditCard, Home, Landma
 
 type Account = { id: string; name: string; institution: string; type: string; balance: number; currency: string };
 type Tab = 'accounts' | 'insights' | 'playground';
+type Filter = 'all' | 'cash' | 'investment' | 'crypto' | 'retirement' | 'property' | 'loan';
 type Recommendation = { title: string; body: string; priority: 'High' | 'Medium' | 'Low'; icon: React.ElementType };
 
 const liabilityTypes = ['loan', 'credit'];
 const typeLabel: Record<string, string> = { checking: 'Checking', savings: 'Savings', cash: 'Cash', investment: 'Investment', crypto: 'Crypto', retirement: 'Retirement', property: 'Property', loan: 'Loan', credit: 'Credit' };
 const typeIcon: Record<string, React.ElementType> = { checking: Landmark, savings: Landmark, cash: Wallet, investment: BarChart3, crypto: Coins, retirement: Trophy, property: Home, loan: CreditCard, credit: CreditCard };
+const filters: { value: Filter; label: string; types?: string[] }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'cash', label: 'Cash', types: ['checking', 'savings', 'cash'] },
+  { value: 'investment', label: 'Invest', types: ['investment'] },
+  { value: 'crypto', label: 'Crypto', types: ['crypto'] },
+  { value: 'retirement', label: 'EPF', types: ['retirement'] },
+  { value: 'property', label: 'Property', types: ['property'] },
+  { value: 'loan', label: 'Debt', types: ['loan', 'credit'] },
+];
 
 function formatCurrency(value: number, compact = false) {
   return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR', maximumFractionDigits: compact ? 1 : 0, notation: compact ? 'compact' : 'standard' }).format(value || 0);
@@ -25,7 +35,6 @@ function getRecommendations(totals: { assets: number; liabilities: number; cash:
   const debtPct = (totals.liabilities / assetBase) * 100;
   const propertyPct = (totals.property / assetBase) * 100;
   const recs: Recommendation[] = [];
-
   if (totals.assets === 0) return [{ title: 'Build the base layer first', body: 'Add cash, EPF, investments, crypto, property, and loans before relying on allocation advice.', priority: 'High', icon: ShieldCheck }];
   if (cashPct > 35) recs.push({ title: 'Cash allocation looks heavy', body: `Cash is about ${cashPct.toFixed(0)}% of assets. Keep an emergency buffer, then consider reallocating surplus into EPF, broad funds, or investment accounts.`, priority: 'High', icon: Wallet });
   if (investPct < 25 && totals.netWorth > 0) recs.push({ title: 'Investment allocation is light', body: `Investments are about ${investPct.toFixed(0)}% of assets. Retirement progress may need a higher allocation outside idle cash.`, priority: 'Medium', icon: BarChart3 });
@@ -40,6 +49,7 @@ export default function DashboardPage() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<Tab>('accounts');
+  const [filter, setFilter] = useState<Filter>('all');
 
   useEffect(() => {
     async function loadAccounts() {
@@ -61,6 +71,13 @@ export default function DashboardPage() {
     return { assets, liabilities, cash, investments, property, netWorth: assets - liabilities };
   }, [accounts]);
 
+  const visibleAccounts = useMemo(() => {
+    const selected = filters.find((item) => item.value === filter);
+    if (!selected?.types) return accounts;
+    return accounts.filter((account) => selected.types!.includes(account.type));
+  }, [accounts, filter]);
+
+  const visibleTotal = visibleAccounts.reduce((sum, account) => sum + Math.abs(Number(account.balance)), 0);
   const recommendations = useMemo(() => getRecommendations(totals), [totals]);
   const startNetWorth = Math.max(totals.netWorth * 0.62, 0);
   const change = totals.netWorth - startNetWorth;
@@ -68,49 +85,53 @@ export default function DashboardPage() {
   const projected = totals.netWorth + Math.max(change, totals.netWorth * 0.08);
   const allocation = [{ label: 'Cash', value: totals.cash }, { label: 'Investments', value: totals.investments }, { label: 'Property', value: totals.property }].filter((item) => item.value > 0);
 
-  if (loading) return <main className="min-h-screen bg-[#080b08] flex items-center justify-center text-[#d8ded2]">Loading...</main>;
+  if (loading) return <main className="min-h-screen bg-[#080b08] flex items-center justify-center text-[#d8ded2] text-sm">Loading...</main>;
 
   return (
     <main className="min-h-screen bg-[#080b08] text-[#f4f5ef]">
-      <div className="mx-auto max-w-[720px] min-h-screen relative overflow-hidden pb-24">
-        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_-10%,rgba(148,255,97,0.14),transparent_36%),linear-gradient(180deg,#1b2318_0%,#080b08_42%)]" />
-        <div className="relative px-5 pt-7">
-          <header className="flex items-center justify-between mb-7">
-            <h1 className="text-2xl font-semibold tracking-tight">{tab === 'accounts' ? 'Worth it' : tab === 'insights' ? 'Insights' : 'Playground'}</h1>
-            <button onClick={() => router.push('/accounts/profile')} className="text-[#f4f5ef]"><UserCircle className="h-9 w-9" /></button>
+      <div className="mx-auto max-w-[680px] min-h-screen relative overflow-hidden pb-24">
+        <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_-10%,rgba(148,255,97,0.12),transparent_34%),linear-gradient(180deg,#182016_0%,#080b08_42%)]" />
+        <div className="relative px-4 pt-6">
+          <header className="flex items-center justify-between mb-6">
+            <h1 className="text-xl font-semibold tracking-tight">{tab === 'accounts' ? 'Worth it' : tab === 'insights' ? 'Insights' : 'Playground'}</h1>
+            <button onClick={() => router.push('/accounts/profile')} className="text-[#f4f5ef]"><UserCircle className="h-8 w-8" /></button>
           </header>
 
           {tab === 'accounts' && <section>
-            <p className="text-[#a8aca3] text-sm mb-2">Net worth</p>
-            <div className="text-3xl font-light tracking-tight mb-3">{formatCurrency(totals.netWorth)}</div>
-            <div className="inline-flex items-center gap-2 rounded-lg bg-[#75efad]/20 px-3 py-1 text-[#75efad] font-mono text-xs mb-4"><span>▲</span>{changePct.toFixed(1)}%</div>
-            <div className="h-[160px] -mx-5 mb-5 border-b border-white/10 relative overflow-hidden">
-              <svg viewBox="0 0 700 160" className="h-full w-full"><defs><linearGradient id="line" x1="0" x2="1"><stop offset="0%" stopColor="#35bdf5"/><stop offset="100%" stopColor="#69f0c2"/></linearGradient><linearGradient id="fill" x1="0" y1="0" y2="1"><stop offset="0%" stopColor="#69f0c2" stopOpacity="0.20"/><stop offset="100%" stopColor="#69f0c2" stopOpacity="0"/></linearGradient></defs>{[100,230,360,490,620].map((x) => <line key={x} x1={x} x2={x} y1="0" y2="160" stroke="rgba(255,255,255,0.10)"/>)}<path d="M0 118 C120 110,200 97,290 86 C390 72,480 54,700 50" fill="none" stroke="url(#line)" strokeWidth="4" strokeLinecap="round"/><path d="M0 118 C120 110,200 97,290 86 C390 72,480 54,700 50 L700 160 L0 160 Z" fill="url(#fill)"/></svg>
-              <div className="absolute bottom-2 left-0 right-0 flex justify-between px-5 text-[#8d9188] text-xs"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span></div>
+            <p className="text-[#a8aca3] text-xs mb-1.5">Net worth</p>
+            <div className="text-[1.7rem] leading-tight font-light tracking-tight mb-2">{formatCurrency(totals.netWorth)}</div>
+            <div className="inline-flex items-center gap-1.5 rounded-md bg-[#75efad]/18 px-2.5 py-1 text-[#75efad] font-mono text-[11px] mb-4"><span>▲</span><span>{changePct.toFixed(1)}% since baseline</span></div>
+            <div className="h-[140px] -mx-4 mb-4 border-b border-white/10 relative overflow-hidden">
+              <svg viewBox="0 0 700 140" className="h-full w-full"><defs><linearGradient id="line" x1="0" x2="1"><stop offset="0%" stopColor="#35bdf5"/><stop offset="100%" stopColor="#69f0c2"/></linearGradient><linearGradient id="fill" x1="0" y1="0" y2="1"><stop offset="0%" stopColor="#69f0c2" stopOpacity="0.18"/><stop offset="100%" stopColor="#69f0c2" stopOpacity="0"/></linearGradient></defs>{[100,230,360,490,620].map((x) => <line key={x} x1={x} x2={x} y1="0" y2="140" stroke="rgba(255,255,255,0.08)"/>)}<path d="M0 104 C120 97,200 86,290 76 C390 64,480 49,700 44" fill="none" stroke="url(#line)" strokeWidth="3" strokeLinecap="round"/><path d="M0 104 C120 97,200 86,290 76 C390 64,480 49,700 44 L700 140 L0 140 Z" fill="url(#fill)"/></svg>
+              <div className="absolute bottom-1.5 left-0 right-0 flex justify-between px-4 text-[#8d9188] text-[11px]"><span>Jan</span><span>Feb</span><span>Mar</span><span>Apr</span><span>May</span><span>Jun</span></div>
             </div>
-            <div className="flex gap-3 mb-4"><div className="flex-1 rounded-2xl border border-white/12 bg-white/[0.04] px-4 py-3 text-sm text-[#d8ded2]"><Wallet className="inline h-4 w-4 mr-2" />{accounts.length} accounts</div><button className="rounded-2xl bg-[#4a573d] px-4 py-3 font-mono text-sm">Filter</button></div>
-            <div className="space-y-1">{accounts.map((account) => { const Icon = typeIcon[account.type] ?? Landmark; const debt = liabilityTypes.includes(account.type); return <button onClick={() => router.push(`/accounts/${account.id}`)} key={account.id} className="relative w-full flex items-center justify-between rounded-2xl px-4 py-3 text-left"><div className={cn('absolute left-0 top-3 bottom-3 w-1.5 rounded-full', debt ? 'bg-[#c96f5d]' : account.type === 'retirement' ? 'bg-[#31b8d8]' : 'bg-[#a7ff4f]')} /><div className="pl-4 min-w-0"><p className="text-base truncate">{account.name}</p><div className="mt-1 flex items-center gap-2 text-[#8d9188]"><span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-xs"><Icon className="h-3 w-3" />{typeLabel[account.type] ?? account.type}</span></div></div><p className="text-base shrink-0">{formatCurrency(Math.abs(Number(account.balance)))}</p></button>})}</div>
+
+            <div className="mb-4 overflow-x-auto no-scrollbar -mx-4 px-4"><div className="flex gap-2 w-max">{filters.map((item) => <button key={item.value} onClick={() => setFilter(item.value)} className={cn('rounded-full border px-3 py-2 text-xs transition', filter === item.value ? 'bg-[#a7ff4f] border-[#a7ff4f] text-[#071006]' : 'bg-white/[0.04] border-white/10 text-[#cdd3c8]')}>{item.label}</button>)}</div></div>
+
+            <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] px-3.5 py-3 text-xs text-[#d8ded2] mb-3"><span><Wallet className="inline h-3.5 w-3.5 mr-1.5" />{visibleAccounts.length} shown</span><span className="font-mono">{formatCurrency(visibleTotal, true)}</span></div>
+
+            <div className="space-y-0.5">{visibleAccounts.map((account) => { const Icon = typeIcon[account.type] ?? Landmark; const debt = liabilityTypes.includes(account.type); return <button onClick={() => router.push(`/accounts/${account.id}`)} key={account.id} className="relative w-full flex items-center justify-between rounded-2xl px-3.5 py-3 text-left hover:bg-white/[0.03]"><div className={cn('absolute left-0 top-3 bottom-3 w-1 rounded-full', debt ? 'bg-[#c96f5d]' : account.type === 'retirement' ? 'bg-[#31b8d8]' : 'bg-[#a7ff4f]')} /><div className="pl-3 min-w-0"><p className="text-sm truncate">{account.name}</p><div className="mt-1 flex items-center gap-2 text-[#8d9188]"><span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-2 py-0.5 text-[11px]"><Icon className="h-3 w-3" />{typeLabel[account.type] ?? account.type}</span></div></div><p className="text-sm shrink-0 font-medium">{formatCurrency(Math.abs(Number(account.balance)))}</p></button>})}</div>
           </section>}
 
-          {tab === 'insights' && <section className="space-y-4">
-            <div><h2 className="text-2xl font-light">Big picture</h2><p className="text-[#a8aca3] text-sm">Forecast and next milestone at a glance.</p></div>
-            <div className="rounded-[22px] bg-white/[0.05] border border-white/8 p-4"><div className="flex gap-3"><div className="w-11 h-11 rounded-2xl bg-white/[0.06] flex items-center justify-center"><Sparkles className="h-5 w-5 text-[#75efad]" /></div><div className="flex-1"><h3 className="text-xl mb-1">Net Worth Forecast</h3><p className="text-[#d8ded2] text-sm">Reaching <b>{formatCurrency(projected)}</b> by year-end.</p><div className="mt-4 space-y-2 font-mono text-xs"><div className="flex justify-between"><span className="text-[#a8aca3]">So far this year</span><span>{formatCurrency(change)} <b className="text-[#75efad]">▲ {changePct.toFixed(1)}%</b></span></div><div className="flex justify-between"><span className="text-[#a8aca3]">Projected gain</span><span>{formatCurrency(projected - totals.netWorth)}</span></div></div></div></div></div>
-            <div className="rounded-[22px] bg-white/[0.05] border border-white/8 p-4"><h3 className="text-xl mb-1">Next Milestone</h3><p className="text-[#d8ded2] text-sm">Next target: {formatCurrency(Math.ceil((totals.netWorth + 1) / 100000) * 100000)}</p></div>
-            <div><h2 className="text-2xl font-light">Momentum</h2><p className="text-[#a8aca3] text-sm">Recent changes and liquid position.</p></div>
-            <div className="rounded-[22px] bg-white/[0.05] border border-white/8 p-4"><ArrowUpRight className="h-7 w-7 text-[#75efad] mb-3" /><h3 className="text-xl">Monthly Progress</h3><p className="text-[#d8ded2] text-sm">+{formatCurrency(change)} this period</p></div>
-            <div className="rounded-[22px] bg-white/[0.05] border border-white/8 p-4"><div className="flex items-center justify-between mb-3"><h3 className="text-xl">AI Recommendations</h3><Lightbulb className="h-5 w-5 text-[#75efad]" /></div><div className="space-y-3">{recommendations.map((rec) => <div key={rec.title} className="rounded-2xl bg-black/20 border border-white/8 p-3"><div className="flex gap-3"><rec.icon className="h-5 w-5 text-[#75efad] shrink-0 mt-1" /><div><p className="font-semibold text-sm">{rec.title}</p><p className="text-xs text-[#a8aca3] leading-relaxed">{rec.body}</p></div></div></div>)}</div></div>
-            <div className="rounded-[22px] bg-white/[0.05] border border-white/8 p-4"><h3 className="text-xl mb-2">Currency Converter</h3><div className="space-y-2 font-mono text-sm"><div className="flex justify-between"><span>MYR</span><span>{formatCurrency(totals.netWorth)}</span></div><div className="flex justify-between"><span>USD</span><span>US${Math.round(totals.netWorth / 4.47).toLocaleString()}</span></div><div className="flex justify-between"><span>USDT</span><span>{Math.round(totals.netWorth / 4.47).toLocaleString()}₮</span></div></div></div>
+          {tab === 'insights' && <section className="space-y-3.5">
+            <div><h2 className="text-xl font-light">Big picture</h2><p className="text-[#a8aca3] text-xs">Forecast and next milestone at a glance.</p></div>
+            <div className="rounded-[20px] bg-white/[0.05] border border-white/8 p-3.5"><div className="flex gap-3"><div className="w-10 h-10 rounded-2xl bg-white/[0.06] flex items-center justify-center"><Sparkles className="h-5 w-5 text-[#75efad]" /></div><div className="flex-1"><h3 className="text-base mb-1">Net Worth Forecast</h3><p className="text-[#d8ded2] text-xs">Reaching <b>{formatCurrency(projected)}</b> by year-end.</p><div className="mt-3 space-y-1.5 font-mono text-[11px]"><div className="flex justify-between"><span className="text-[#a8aca3]">Since baseline</span><span>{formatCurrency(change)} <b className="text-[#75efad]">▲ {changePct.toFixed(1)}%</b></span></div><div className="flex justify-between"><span className="text-[#a8aca3]">Projected gain</span><span>{formatCurrency(projected - totals.netWorth)}</span></div></div></div></div></div>
+            <div className="rounded-[20px] bg-white/[0.05] border border-white/8 p-3.5"><h3 className="text-base mb-1">Next Milestone</h3><p className="text-[#d8ded2] text-xs">Next target: {formatCurrency(Math.ceil((totals.netWorth + 1) / 100000) * 100000)}</p></div>
+            <div><h2 className="text-xl font-light">Momentum</h2><p className="text-[#a8aca3] text-xs">Recent changes and liquid position.</p></div>
+            <div className="rounded-[20px] bg-white/[0.05] border border-white/8 p-3.5"><ArrowUpRight className="h-6 w-6 text-[#75efad] mb-2" /><h3 className="text-base">Progress</h3><p className="text-[#d8ded2] text-xs">+{formatCurrency(change)} since baseline</p></div>
+            <div className="rounded-[20px] bg-white/[0.05] border border-white/8 p-3.5"><div className="flex items-center justify-between mb-3"><h3 className="text-base">AI Recommendations</h3><Lightbulb className="h-4 w-4 text-[#75efad]" /></div><div className="space-y-2.5">{recommendations.map((rec) => <div key={rec.title} className="rounded-2xl bg-black/20 border border-white/8 p-3"><div className="flex gap-2.5"><rec.icon className="h-4 w-4 text-[#75efad] shrink-0 mt-1" /><div><p className="font-semibold text-xs">{rec.title}</p><p className="text-[11px] text-[#a8aca3] leading-relaxed">{rec.body}</p></div></div></div>)}</div></div>
+            <div className="rounded-[20px] bg-white/[0.05] border border-white/8 p-3.5"><h3 className="text-base mb-2">Currency Converter</h3><div className="space-y-1.5 font-mono text-xs"><div className="flex justify-between"><span>MYR</span><span>{formatCurrency(totals.netWorth)}</span></div><div className="flex justify-between"><span>USD</span><span>US${Math.round(totals.netWorth / 4.47).toLocaleString()}</span></div><div className="flex justify-between"><span>USDT</span><span>{Math.round(totals.netWorth / 4.47).toLocaleString()}₮</span></div></div></div>
           </section>}
 
-          {tab === 'playground' && <section className="space-y-4">
-            <div className="flex justify-between"><div><p className="text-[#a8aca3] text-sm">From</p><p className="text-2xl font-light">{formatCurrency(startNetWorth)}</p><p className="text-sm">Jan 1, 2026</p></div><div className="text-right"><p className="text-[#a8aca3] text-sm">To</p><p className="text-2xl font-light">{formatCurrency(totals.netWorth)}</p><p className="text-sm">Today</p></div></div>
-            <div className="h-[220px] -mx-5 border-y border-white/10 relative"><svg viewBox="0 0 700 220" className="w-full h-full"><path d="M30 178 C150 150,230 98,360 64 C470 38,540 25,650 29" fill="none" stroke="#69f0c2" strokeWidth="4" strokeLinecap="round"/><circle cx="650" cy="29" r="6" fill="#69f0c2"/></svg><div className="absolute bottom-4 left-5 right-5 flex justify-between text-[#8d9188] text-sm"><span>Jan</span><span>Mar</span><span>May</span></div></div>
-            <div className="rounded-[22px] bg-white/[0.05] border border-white/8 p-4"><h3 className="text-xl mb-4">Liquidity</h3><div className="grid grid-cols-2 gap-4 items-center"><div className="aspect-square rounded-full bg-[conic-gradient(#31b8d8_0_60%,#a7ff4f_60%_96%,#6ee7b7_96%_100%)] p-7"><div className="h-full w-full rounded-full bg-[#11160f]" /></div><div className="space-y-2">{allocation.map((item) => <div key={item.label} className="rounded-full border border-white/15 bg-black/25 px-3 py-2 font-mono text-xs">{formatCurrency(item.value)}</div>)}</div></div></div>
-            <div className="rounded-[22px] bg-white/[0.05] border border-white/8 p-4 flex justify-between"><span className="text-base">All-time high</span><b className="text-base">{formatCurrency(totals.netWorth)}</b></div>
+          {tab === 'playground' && <section className="space-y-3.5">
+            <div className="flex justify-between"><div><p className="text-[#a8aca3] text-xs">From</p><p className="text-xl font-light">{formatCurrency(startNetWorth)}</p><p className="text-xs">Baseline</p></div><div className="text-right"><p className="text-[#a8aca3] text-xs">To</p><p className="text-xl font-light">{formatCurrency(totals.netWorth)}</p><p className="text-xs">Today</p></div></div>
+            <div className="h-[180px] -mx-4 border-y border-white/10 relative"><svg viewBox="0 0 700 180" className="w-full h-full"><path d="M30 145 C150 122,230 80,360 52 C470 31,540 20,650 24" fill="none" stroke="#69f0c2" strokeWidth="3" strokeLinecap="round"/><circle cx="650" cy="24" r="5" fill="#69f0c2"/></svg><div className="absolute bottom-3 left-4 right-4 flex justify-between text-[#8d9188] text-xs"><span>Start</span><span>Mid</span><span>Now</span></div></div>
+            <div className="rounded-[20px] bg-white/[0.05] border border-white/8 p-3.5"><h3 className="text-base mb-3">Liquidity</h3><div className="grid grid-cols-2 gap-3 items-center"><div className="aspect-square rounded-full bg-[conic-gradient(#31b8d8_0_60%,#a7ff4f_60%_96%,#6ee7b7_96%_100%)] p-6"><div className="h-full w-full rounded-full bg-[#11160f]" /></div><div className="space-y-2">{allocation.map((item) => <div key={item.label} className="rounded-full border border-white/15 bg-black/25 px-3 py-2 font-mono text-[11px]">{formatCurrency(item.value)}</div>)}</div></div></div>
+            <div className="rounded-[20px] bg-white/[0.05] border border-white/8 p-3.5 flex justify-between"><span className="text-sm">All-time high</span><b className="text-sm">{formatCurrency(totals.netWorth)}</b></div>
           </section>}
         </div>
-        <button onClick={() => router.push('/accounts')} className="fixed right-6 bottom-24 z-40 h-16 w-16 rounded-[20px] border-4 border-[#2f7dff] bg-[#a7ff4f] text-[#071006] shadow-2xl flex items-center justify-center"><Plus className="h-8 w-8" /></button>
-        <nav className="fixed left-4 right-4 bottom-5 z-50 mx-auto max-w-[690px] rounded-[28px] border border-white/15 bg-[#10140f]/90 backdrop-blur-xl p-2 shadow-2xl"><div className="grid grid-cols-3 gap-2">{(['accounts','insights','playground'] as Tab[]).map((item) => { const Icon = item === 'accounts' ? Wallet : item === 'insights' ? Waves : Sparkles; return <button key={item} onClick={() => setTab(item)} className={cn('h-12 rounded-[22px] flex items-center justify-center gap-2 font-semibold capitalize text-[#cdd3c8]', tab === item && 'bg-white/18 text-white')}><Icon className="h-5 w-5" /><span className="hidden sm:inline">{item}</span></button> })}</div></nav>
+        <button onClick={() => router.push('/accounts')} className="fixed right-5 bottom-22 z-40 h-14 w-14 rounded-[18px] border-3 border-[#2f7dff] bg-[#a7ff4f] text-[#071006] shadow-2xl flex items-center justify-center"><Plus className="h-7 w-7" /></button>
+        <nav className="fixed left-4 right-4 bottom-5 z-50 mx-auto max-w-[640px] rounded-[24px] border border-white/15 bg-[#10140f]/90 backdrop-blur-xl p-1.5 shadow-2xl"><div className="grid grid-cols-3 gap-1.5">{(['accounts','insights','playground'] as Tab[]).map((item) => { const Icon = item === 'accounts' ? Wallet : item === 'insights' ? Waves : Sparkles; return <button key={item} onClick={() => setTab(item)} className={cn('h-11 rounded-[18px] flex items-center justify-center gap-2 font-semibold capitalize text-[#cdd3c8] text-xs', tab === item && 'bg-white/18 text-white')}><Icon className="h-4 w-4" /><span className="hidden sm:inline">{item}</span></button> })}</div></nav>
       </div>
     </main>
   );
