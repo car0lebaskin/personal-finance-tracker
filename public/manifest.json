@@ -1,0 +1,21 @@
+{
+  "name": "Vault",
+  "short_name": "Vault",
+  "description": "A private personal finance tracker for net worth, assets, and insights.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#080b08",
+  "theme_color": "#a7ff4f",
+  "icons": [
+    {
+      "src": "/icons/vault-icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icons/vault-icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
