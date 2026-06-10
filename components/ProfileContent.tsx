@@ -2,27 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Download, LogOut, Target, UserCircle } from 'lucide-react';
+import { ArrowLeft, Download, LockKeyhole, LogOut, Target, UserCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
 type Row = Record<string, string | number | boolean | null>;
-
-function csvValue(value: unknown) {
-  if (value === null || value === undefined) return '';
-  return `"${String(value).replace(/"/g, '""')}"`;
-}
-
-function downloadCsv(filename: string, rows: Row[]) {
-  const headers = rows.length ? Object.keys(rows[0]) : ['empty'];
-  const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
+function csvValue(value: unknown) { if (value === null || value === undefined) return ''; return `"${String(value).replace(/"/g, '""')}"`; }
+function downloadCsv(filename: string, rows: Row[]) { const headers = rows.length ? Object.keys(rows[0]) : ['empty']; const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n'); const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' }); const url = URL.createObjectURL(blob); const link = document.createElement('a'); link.href = url; link.download = filename; link.click(); URL.revokeObjectURL(url); }
 
 export default function ProfileContent() {
   const router = useRouter();
@@ -31,35 +16,11 @@ export default function ProfileContent() {
   const [exporting, setExporting] = useState(false);
   const [status, setStatus] = useState('');
 
-  useEffect(() => {
-    async function load() {
-      const session = await supabase.auth.getSession();
-      if (!session.data.session) { router.push('/login'); return; }
-      setEmail(session.data.session.user.email || '');
-      setLoading(false);
-    }
-    load();
-  }, [router]);
-
-  async function exportData() {
-    setExporting(true);
-    setStatus('');
-    const accounts = await supabase.from('accounts').select('*').order('created_at', { ascending: false });
-    const snapshots = await supabase.from('account_snapshots').select('*').order('snapshot_date', { ascending: true });
-    setExporting(false);
-    if (accounts.error) { setStatus(accounts.error.message); return; }
-    if (snapshots.error) { setStatus(snapshots.error.message); return; }
-    downloadCsv(`vault-accounts-${new Date().toISOString().slice(0, 10)}.csv`, (accounts.data || []) as Row[]);
-    downloadCsv(`vault-snapshots-${new Date().toISOString().slice(0, 10)}.csv`, (snapshots.data || []) as Row[]);
-    setStatus('Export downloaded: accounts + snapshots.');
-  }
-
-  async function signOut() {
-    await supabase.auth.signOut();
-    router.push('/login');
-  }
-
+  useEffect(() => { async function load() { const session = await supabase.auth.getSession(); if (!session.data.session) { router.push('/login'); return; } setEmail(session.data.session.user.email || ''); setLoading(false); } load(); }, [router]);
+  async function exportData() { setExporting(true); setStatus(''); const accounts = await supabase.from('accounts').select('*').order('created_at', { ascending: false }); const snapshots = await supabase.from('account_snapshots').select('*').order('snapshot_date', { ascending: true }); setExporting(false); if (accounts.error) { setStatus(accounts.error.message); return; } if (snapshots.error) { setStatus(snapshots.error.message); return; } downloadCsv(`vault-accounts-${new Date().toISOString().slice(0, 10)}.csv`, (accounts.data || []) as Row[]); downloadCsv(`vault-snapshots-${new Date().toISOString().slice(0, 10)}.csv`, (snapshots.data || []) as Row[]); setStatus('Export downloaded: accounts + snapshots.'); }
+  function lockNow() { sessionStorage.removeItem('vault_lock_time'); router.push('/'); }
+  async function signOut() { await supabase.auth.signOut(); router.push('/login'); }
   if (loading) return <main className="min-h-screen bg-[#080b08] flex items-center justify-center text-[#d8ded2] text-sm">Loading...</main>;
 
-  return <main className="min-h-screen bg-[#080b08] text-[#f4f5ef]"><div className="mx-auto max-w-[680px] min-h-screen relative overflow-hidden"><div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_-10%,rgba(148,255,97,0.12),transparent_34%),linear-gradient(180deg,#182016_0%,#080b08_42%)]"/><div className="relative px-4 pt-6 pb-10"><header className="flex items-center justify-between mb-8"><button onClick={() => router.push('/')} className="h-10 w-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center"><ArrowLeft className="h-5 w-5"/></button><h1 className="text-xl font-semibold tracking-tight">Account</h1><div className="h-10 w-10"/></header><section className="rounded-[24px] bg-white/[0.05] border border-white/8 p-5 mb-4"><div className="flex items-center gap-4"><div className="h-14 w-14 rounded-2xl bg-[#a7ff4f]/15 flex items-center justify-center"><UserCircle className="h-8 w-8 text-[#a7ff4f]"/></div><div className="min-w-0"><p className="text-lg font-semibold">Vault</p><p className="text-sm text-[#a8aca3] truncate">{email}</p></div></div></section><section className="rounded-[24px] bg-white/[0.05] border border-white/8 p-4 mb-4"><h2 className="text-base font-medium mb-3">Settings</h2><div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-[#a8aca3]">Currency</span><span>MYR</span></div><div className="flex justify-between"><span className="text-[#a8aca3]">Theme</span><span>Dark</span></div><div className="flex justify-between"><span className="text-[#a8aca3]">Storage</span><span>Supabase private tables</span></div></div></section><button onClick={() => router.push('/goals')} className="w-full rounded-[20px] bg-white/[0.05] border border-white/8 px-4 py-4 flex items-center justify-between mb-3 text-left"><span><b className="block text-sm">Goals</b><small className="text-[#a8aca3]">Net worth, retirement, and emergency targets</small></span><Target className="h-5 w-5 text-[#a7ff4f]"/></button><button onClick={exportData} disabled={exporting} className="w-full rounded-[20px] bg-white/[0.05] border border-white/8 px-4 py-4 flex items-center justify-between mb-3 text-left disabled:opacity-60"><span><b className="block text-sm">Export data</b><small className="text-[#a8aca3]">Download accounts and snapshots as CSV</small></span><Download className="h-5 w-5 text-[#a7ff4f]"/></button>{status && <p className="text-xs text-[#a8aca3] mb-4">{status}</p>}<button onClick={signOut} className="w-full rounded-[20px] bg-red-500/10 border border-red-500/20 px-4 py-4 flex items-center justify-between text-left text-red-100"><span><b className="block text-sm">Sign out</b><small className="text-red-200/70">Leave Vault on this device</small></span><LogOut className="h-5 w-5"/></button></div></div></main>;
+  return <main className="min-h-screen bg-[#080b08] text-[#f4f5ef]"><div className="mx-auto max-w-[680px] min-h-screen relative overflow-hidden"><div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_-10%,rgba(148,255,97,0.12),transparent_34%),linear-gradient(180deg,#182016_0%,#080b08_42%)]"/><div className="relative px-4 pt-6 pb-10"><header className="flex items-center justify-between mb-8"><button onClick={() => router.push('/')} className="h-10 w-10 rounded-full bg-white/[0.06] border border-white/10 flex items-center justify-center"><ArrowLeft className="h-5 w-5"/></button><h1 className="text-xl font-semibold tracking-tight">Account</h1><div className="h-10 w-10"/></header><section className="rounded-[24px] bg-white/[0.05] border border-white/8 p-5 mb-4"><div className="flex items-center gap-4"><div className="h-14 w-14 rounded-2xl bg-[#a7ff4f]/15 flex items-center justify-center"><UserCircle className="h-8 w-8 text-[#a7ff4f]"/></div><div className="min-w-0"><p className="text-lg font-semibold">Vault</p><p className="text-sm text-[#a8aca3] truncate">{email}</p></div></div></section><section className="rounded-[24px] bg-white/[0.05] border border-white/8 p-4 mb-4"><h2 className="text-base font-medium mb-3">Settings</h2><div className="space-y-3 text-sm"><div className="flex justify-between"><span className="text-[#a8aca3]">Currency</span><span>MYR</span></div><div className="flex justify-between"><span className="text-[#a8aca3]">Theme</span><span>Dark</span></div><div className="flex justify-between"><span className="text-[#a8aca3]">Storage</span><span>Supabase private tables</span></div></div></section><button onClick={() => router.push('/goals')} className="w-full rounded-[20px] bg-white/[0.05] border border-white/8 px-4 py-4 flex items-center justify-between mb-3 text-left"><span><b className="block text-sm">Goals</b><small className="text-[#a8aca3]">Net worth, retirement, and emergency targets</small></span><Target className="h-5 w-5 text-[#a7ff4f]"/></button><button onClick={lockNow} className="w-full rounded-[20px] bg-white/[0.05] border border-white/8 px-4 py-4 flex items-center justify-between mb-3 text-left"><span><b className="block text-sm">Lock Vault</b><small className="text-[#a8aca3]">Require your code again</small></span><LockKeyhole className="h-5 w-5 text-[#a7ff4f]"/></button><button onClick={exportData} disabled={exporting} className="w-full rounded-[20px] bg-white/[0.05] border border-white/8 px-4 py-4 flex items-center justify-between mb-3 text-left disabled:opacity-60"><span><b className="block text-sm">Export data</b><small className="text-[#a8aca3]">Download accounts and snapshots as CSV</small></span><Download className="h-5 w-5 text-[#a7ff4f]"/></button>{status && <p className="text-xs text-[#a8aca3] mb-4">{status}</p>}<button onClick={signOut} className="w-full rounded-[20px] bg-red-500/10 border border-red-500/20 px-4 py-4 flex items-center justify-between text-left text-red-100"><span><b className="block text-sm">Sign out</b><small className="text-red-200/70">Leave Vault on this device</small></span><LogOut className="h-5 w-5"/></button></div></div></main>;
 }
