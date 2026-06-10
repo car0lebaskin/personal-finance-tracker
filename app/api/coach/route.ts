@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { buildPortfolioCoach } from '@/lib/coach';
 import { getTotals } from '@/lib/finance';
+import { monthlyReview, type SnapshotPoint } from '@/lib/insights';
 import type { Account } from '@/lib/finance';
 
 function safePercent(value: number, base: number) {
@@ -21,11 +22,14 @@ function friendlyOpenAiError(status: number, bodyText: string) {
 
 export async function POST(request: Request) {
   let accounts: Account[] = [];
+  let snapshots: SnapshotPoint[] = [];
   try {
     const body = await request.json();
     accounts = Array.isArray(body?.accounts) ? body.accounts : [];
+    snapshots = Array.isArray(body?.snapshots) ? body.snapshots : [];
   } catch {
     accounts = [];
+    snapshots = [];
   }
 
   const fallback = buildPortfolioCoach(accounts);
@@ -33,8 +37,10 @@ export async function POST(request: Request) {
   if (!apiKey) return NextResponse.json({ mode: 'local', actions: fallback, error: 'OPENAI_API_KEY is missing in Vercel Production environment variables.' });
 
   const totals = getTotals(accounts);
+  const review = monthlyReview(accounts, snapshots);
   const summary = {
     accountCount: accounts.length,
+    snapshotCount: review.snapshotCount,
     assetMixPercent: {
       cash: safePercent(totals.cash, totals.assets),
       diversifiedInvestments: safePercent(totals.investments, totals.assets),
@@ -43,6 +49,12 @@ export async function POST(request: Request) {
       property: safePercent(totals.property, totals.assets),
       liabilities: safePercent(totals.liabilities, totals.assets),
       liquidAssets: safePercent(totals.cash + totals.investments + totals.crypto, totals.assets),
+    },
+    trend: {
+      netWorthDirection: review.change > 0 ? 'up' : review.change < 0 ? 'down' : 'flat',
+      liquidPercent: review.liquidPct,
+      debtPercent: review.debtPct,
+      hasPreviousSnapshot: Boolean(review.previous),
     },
     hasDebt: totals.liabilities > 0,
     hasProperty: totals.property > 0,
