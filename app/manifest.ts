@@ -14,7 +14,13 @@ export default function manifest(): MetadataRoute.Manifest {
         src: '/vault-icon.svg',
         sizes: '512x512',
         type: 'image/svg+xml',
-        purpose: 'any maskable',
+        purpose: 'any',
+      },
+      {
+        src: '/vault-icon.svg',
+        sizes: '512x512',
+        type: 'image/svg+xml',
+        purpose: 'maskable',
       },
       {
         src: '/favicon.svg',
