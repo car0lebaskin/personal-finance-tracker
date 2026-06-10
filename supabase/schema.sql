@@ -8,7 +8,7 @@ create table if not exists public.contribution_entries (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   entry_date date not null,
-  category text not null,
+  category text not null default 'Other',
   amount numeric not null default 0,
   note text,
   recurring_id uuid,
@@ -18,9 +18,9 @@ create table if not exists public.contribution_entries (
 create table if not exists public.recurring_contributions (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
-  category text not null,
+  category text not null default 'Other',
   amount numeric not null default 0,
-  run_day int not null default 1 check (run_day between 1 and 31),
+  run_day int not null default 1,
   note text,
   active boolean not null default true,
   last_run_month text,
@@ -57,6 +57,38 @@ create table if not exists public.goals (
   monthly_contribution numeric not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- Column guards for older tables that may already exist.
+alter table public.contribution_entries add column if not exists user_id uuid references auth.users(id) on delete cascade;
+alter table public.contribution_entries add column if not exists entry_date date;
+alter table public.contribution_entries add column if not exists category text default 'Other';
+alter table public.contribution_entries add column if not exists amount numeric not null default 0;
+alter table public.contribution_entries add column if not exists note text;
+alter table public.contribution_entries add column if not exists recurring_id uuid;
+alter table public.contribution_entries add column if not exists created_at timestamptz not null default now();
+
+alter table public.recurring_contributions add column if not exists user_id uuid references auth.users(id) on delete cascade;
+alter table public.recurring_contributions add column if not exists category text default 'Other';
+alter table public.recurring_contributions add column if not exists amount numeric not null default 0;
+alter table public.recurring_contributions add column if not exists run_day int not null default 1;
+alter table public.recurring_contributions add column if not exists note text;
+alter table public.recurring_contributions add column if not exists active boolean not null default true;
+alter table public.recurring_contributions add column if not exists last_run_month text;
+alter table public.recurring_contributions add column if not exists created_at timestamptz not null default now();
+
+alter table public.goals add column if not exists user_id uuid references auth.users(id) on delete cascade;
+alter table public.goals add column if not exists name text;
+alter table public.goals add column if not exists target_amount numeric not null default 0;
+alter table public.goals add column if not exists current_amount numeric not null default 0;
+alter table public.goals add column if not exists target_date date;
+alter table public.goals add column if not exists category text default 'Other';
+alter table public.goals add column if not exists monthly_contribution numeric not null default 0;
+alter table public.goals add column if not exists created_at timestamptz not null default now();
+
+alter table public.crypto_price_cache add column if not exists symbol text;
+alter table public.crypto_price_cache add column if not exists myr_rate numeric;
+alter table public.crypto_price_cache add column if not exists source text;
+alter table public.crypto_price_cache add column if not exists fetched_at timestamptz not null default now();
 
 alter table public.contribution_entries enable row level security;
 alter table public.recurring_contributions enable row level security;
