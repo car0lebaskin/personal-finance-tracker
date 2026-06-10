@@ -5,32 +5,25 @@ import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { ArrowLeft, Save, Trash2 } from 'lucide-react';
 
-type Account = {
-  id: string;
-  name: string;
-  institution: string;
-  type: string;
-  balance: number;
-  notes: string | null;
-};
+type Account = { id: string; name: string; institution: string; type: string; balance: number; notes: string | null };
+type Snapshot = { id: string; snapshot_date: string; balance: number; notes: string | null };
 
-function money(value: number) {
-  return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR', maximumFractionDigits: 2 }).format(value || 0);
-}
-
-function compact(value: number) {
-  return new Intl.NumberFormat('en-MY', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0);
-}
+function today() { return new Date().toISOString().slice(0, 10); }
+function money(value: number) { return new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR', maximumFractionDigits: 2 }).format(value || 0); }
+function compact(value: number) { return new Intl.NumberFormat('en-MY', { notation: 'compact', maximumFractionDigits: 1 }).format(value || 0); }
 
 export default function AccountDetailPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   const [account, setAccount] = useState<Account | null>(null);
+  const [snapshots, setSnapshots] = useState<Snapshot[]>([]);
   const [balance, setBalance] = useState('');
+  const [snapshotDate, setSnapshotDate] = useState(today());
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
   useEffect(() => {
     async function loadAccount() {
@@ -42,44 +35,49 @@ export default function AccountDetailPage() {
       setAccount(item);
       setBalance(String(item.balance || 0));
       setNotes(item.notes || '');
+      const history = await supabase.from('account_snapshots').select('id,snapshot_date,balance,notes').eq('account_id', params.id).order('snapshot_date', { ascending: true });
+      if (!history.error && history.data) setSnapshots(history.data as Snapshot[]);
     }
     loadAccount();
   }, [params.id, router]);
 
   const chart = useMemo(() => {
-    const current = Number(balance || account?.balance || 0);
-    const original = Number(account?.balance || 0);
-    const base = Math.max(original, current, 1);
-    const points = [
-      Math.max(original * 0.72, 0),
-      Math.max(original * 0.82, 0),
-      Math.max(original * 0.91, 0),
-      original,
-      current,
-    ];
-    const coords = points.map((value, index) => {
-      const x = 35 + index * 155;
-      const y = 185 - (value / base) * 135;
-      return { x, y: Math.max(35, Math.min(185, y)), value };
+    const preview = { id: 'preview', snapshot_date: snapshotDate, balance: Number(balance || 0), notes };
+    const merged = [...snapshots.filter((s) => s.snapshot_date !== snapshotDate), preview].sort((a, b) => a.snapshot_date.localeCompare(b.snapshot_date));
+    const points = merged.length ? merged : [preview];
+    const max = Math.max(...points.map((p) => Number(p.balance)), 1);
+    const min = Math.min(...points.map((p) => Number(p.balance)), 0);
+    const range = Math.max(max - min, 1);
+    const coords = points.map((point, index) => {
+      const x = points.length === 1 ? 350 : 35 + (index * 630) / (points.length - 1);
+      const y = 185 - ((Number(point.balance) - min) / range) * 135;
+      return { ...point, x, y: Math.max(35, Math.min(185, y)) };
     });
     const path = coords.map((point, index) => `${index === 0 ? 'M' : 'L'}${point.x} ${point.y}`).join(' ');
-    return { coords, path, current, original, change: current - original };
-  }, [account, balance]);
+    const last = coords[coords.length - 1];
+    const previous = coords[coords.length - 2];
+    const change = previous ? Number(last.balance) - Number(previous.balance) : 0;
+    return { coords, path, max, min, active: activeIndex !== null ? coords[activeIndex] : last, change };
+  }, [snapshots, snapshotDate, balance, notes, activeIndex]);
 
   async function save() {
-    setSaving(true);
-    setError('');
-    const result = await supabase.from('accounts').update({ balance: Number(balance), notes }).eq('id', params.id);
+    setSaving(true); setError('');
+    const session = await supabase.auth.getSession();
+    const userId = session.data.session?.user.id;
+    if (!userId) { router.push('/login'); return; }
+    const updatedBalance = Number(balance);
+    const update = await supabase.from('accounts').update({ balance: updatedBalance, notes }).eq('id', params.id);
+    if (update.error) { setSaving(false); setError(update.error.message); return; }
+    const snapshot = await supabase.from('account_snapshots').insert({ user_id: userId, account_id: params.id, snapshot_date: snapshotDate, balance: updatedBalance, notes });
     setSaving(false);
-    if (result.error) { setError(result.error.message); return; }
+    if (snapshot.error) { setError(snapshot.error.message); return; }
     router.push('/');
   }
 
   async function removeAccount() {
     const confirmed = window.confirm('Delete this entry? This cannot be undone.');
     if (!confirmed) return;
-    setDeleting(true);
-    setError('');
+    setDeleting(true); setError('');
     const result = await supabase.from('accounts').delete().eq('id', params.id);
     setDeleting(false);
     if (result.error) { setError(result.error.message); return; }
@@ -87,6 +85,12 @@ export default function AccountDetailPage() {
   }
 
   if (!account) return <main className="min-h-screen bg-[#080b08] flex items-center justify-center text-[#d8ded2]">Loading...</main>;
+
+  const active = chart.active;
+  const activeIndexSafe = chart.coords.findIndex((p) => p.id === active?.id && p.snapshot_date === active?.snapshot_date);
+  const previous = activeIndexSafe > 0 ? chart.coords[activeIndexSafe - 1] : null;
+  const activeChange = previous ? Number(active.balance) - Number(previous.balance) : 0;
+  const activePct = previous && Number(previous.balance) !== 0 ? (activeChange / Number(previous.balance)) * 100 : 0;
 
   return (
     <main className="min-h-screen bg-[#080b08] text-[#f4f5ef]">
@@ -106,25 +110,30 @@ export default function AccountDetailPage() {
             <p className="text-[#a8aca3] mt-2">Current saved value</p>
           </section>
 
-          <div className="h-[240px] -mx-5 mb-6 border-y border-white/10 relative">
+          <div className="h-[250px] -mx-5 mb-6 border-y border-white/10 relative">
             <svg viewBox="0 0 700 220" className="w-full h-full">
               <defs><linearGradient id="detailLine" x1="0" x2="1"><stop offset="0%" stopColor="#35bdf5"/><stop offset="100%" stopColor="#69f0c2"/></linearGradient></defs>
               {[70,130,190].map((y) => <line key={y} x1="0" x2="700" y1={y} y2={y} stroke="rgba(255,255,255,0.08)" />)}
-              {chart.coords.map((point) => <line key={point.x} x1={point.x} x2={point.x} y1="25" y2="195" stroke="rgba(255,255,255,0.06)" />)}
               <path d={chart.path} fill="none" stroke="url(#detailLine)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-              {chart.coords.map((point, index) => <circle key={point.x} cx={point.x} cy={point.y} r={index === chart.coords.length - 1 ? 7 : 4} fill={index === chart.coords.length - 1 ? '#f4f5ef' : '#69f0c2'} />)}
+              {chart.coords.map((point, index) => <circle key={`${point.snapshot_date}-${index}`} onClick={() => setActiveIndex(index)} cx={point.x} cy={point.y} r={point.id === 'preview' ? 7 : 5} fill={point.id === 'preview' ? '#f4f5ef' : '#69f0c2'} className="cursor-pointer" />)}
             </svg>
-            <div className="absolute right-5 top-5 text-right text-xs text-[#8d9188]"><p>{compact(Math.max(chart.current, chart.original))}</p><p className="mt-12">{compact(Math.max(chart.current, chart.original) / 2)}</p><p className="mt-12">0</p></div>
-            <div className="absolute bottom-3 left-5 right-5 flex justify-between text-xs text-[#8d9188]"><span>Start</span><span>Previous</span><span>Now</span></div>
+            <div className="absolute left-5 top-4 rounded-2xl bg-black/45 border border-white/10 px-3 py-2 backdrop-blur">
+              <p className="text-xs text-[#a8aca3]">{active?.snapshot_date}</p>
+              <p className="text-sm font-mono">{money(Number(active?.balance || 0))}</p>
+              <p className={activeChange >= 0 ? 'text-xs text-[#75efad]' : 'text-xs text-red-200'}>{activeChange >= 0 ? '+' : ''}{money(activeChange)} {previous ? `(${activePct.toFixed(1)}%)` : ''}</p>
+            </div>
+            <div className="absolute right-5 top-5 text-right text-xs text-[#8d9188]"><p>{compact(chart.max)}</p><p className="mt-12">{compact((chart.max + chart.min) / 2)}</p><p className="mt-12">{compact(chart.min)}</p></div>
           </div>
 
           <section className="grid grid-cols-3 gap-3 mb-5">
-            <div className="rounded-2xl bg-white/[0.05] border border-white/8 p-3 text-center"><p className="text-sm">{money(Math.abs(chart.change))}</p><p className="text-xs text-[#a8aca3] mt-1">Change</p></div>
-            <div className="rounded-2xl bg-white/[0.05] border border-white/8 p-3 text-center"><p className="text-sm">{chart.change >= 0 ? '+' : '-'}{account.balance ? Math.abs((chart.change / Number(account.balance)) * 100).toFixed(1) : '0'}%</p><p className="text-xs text-[#a8aca3] mt-1">Percent</p></div>
-            <div className="rounded-2xl bg-white/[0.05] border border-white/8 p-3 text-center"><p className="text-sm">{money(chart.current)}</p><p className="text-xs text-[#a8aca3] mt-1">Preview</p></div>
+            <div className="rounded-2xl bg-white/[0.05] border border-white/8 p-3 text-center"><p className="text-sm">{snapshots.length}</p><p className="text-xs text-[#a8aca3] mt-1">History</p></div>
+            <div className="rounded-2xl bg-white/[0.05] border border-white/8 p-3 text-center"><p className="text-sm">{activeChange >= 0 ? '+' : ''}{activePct.toFixed(1)}%</p><p className="text-xs text-[#a8aca3] mt-1">Selected</p></div>
+            <div className="rounded-2xl bg-white/[0.05] border border-white/8 p-3 text-center"><p className="text-sm">{money(Number(balance))}</p><p className="text-xs text-[#a8aca3] mt-1">Preview</p></div>
           </section>
 
           <section className="rounded-[28px] bg-white/[0.05] border border-white/8 p-5 mb-5">
+            <label className="block text-sm text-[#a8aca3] mb-2">Update date</label>
+            <input className="w-full rounded-2xl bg-black/25 border border-white/10 px-4 py-4 outline-none text-base mb-4" type="date" value={snapshotDate} onChange={(e) => setSnapshotDate(e.target.value)} />
             <label className="block text-sm text-[#a8aca3] mb-2">New balance</label>
             <div className="flex items-center gap-3 rounded-2xl bg-black/25 border border-white/10 px-4 py-4"><span className="text-[#a8aca3]">RM</span><input className="w-full bg-transparent outline-none text-2xl font-light" type="number" step="0.01" value={balance} onChange={(e) => setBalance(e.target.value)} /></div>
           </section>
