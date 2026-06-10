@@ -1,6 +1,12 @@
 import { NextResponse } from 'next/server';
 import { buildPortfolioCoach } from '@/lib/coach';
+import { getTotals } from '@/lib/finance';
 import type { Account } from '@/lib/finance';
+
+function safePercent(value: number, base: number) {
+  if (!base) return 0;
+  return Math.round((value / base) * 100);
+}
 
 export async function POST(request: Request) {
   let accounts: Account[] = [];
@@ -13,7 +19,24 @@ export async function POST(request: Request) {
 
   const fallback = buildPortfolioCoach(accounts);
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return NextResponse.json({ mode: 'rules', actions: fallback });
+  if (!apiKey) return NextResponse.json({ mode: 'local', actions: fallback });
+
+  const totals = getTotals(accounts);
+  const summary = {
+    accountCount: accounts.length,
+    assetMixPercent: {
+      cash: safePercent(totals.cash, totals.assets),
+      diversifiedInvestments: safePercent(totals.investments, totals.assets),
+      crypto: safePercent(totals.crypto, totals.assets),
+      retirement: safePercent(totals.retirement, totals.assets),
+      property: safePercent(totals.property, totals.assets),
+      liabilities: safePercent(totals.liabilities, totals.assets),
+      liquidAssets: safePercent(totals.cash + totals.investments + totals.crypto, totals.assets),
+    },
+    hasDebt: totals.liabilities > 0,
+    hasProperty: totals.property > 0,
+    hasCrypto: totals.crypto > 0,
+  };
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -28,11 +51,11 @@ export async function POST(request: Request) {
         messages: [
           {
             role: 'system',
-            content: 'You are a cautious personal finance portfolio coach for a Malaysian user. Do not give guaranteed returns. Do not recommend specific regulated financial products. Return only JSON with an actions array. Each action needs title, body, priority, and category.',
+            content: 'You are a cautious portfolio coach. Use only the summary data. Do not mention account names, specific securities, guaranteed returns, or regulated product recommendations. Return JSON only: {"actions":[{"title":"","body":"","priority":"High|Medium|Low","category":""}]}',
           },
           {
             role: 'user',
-            content: JSON.stringify({ accounts }),
+            content: JSON.stringify(summary),
           },
         ],
       }),
@@ -48,6 +71,6 @@ export async function POST(request: Request) {
     if (!Array.isArray(parsed.actions)) throw new Error('Invalid AI response.');
     return NextResponse.json({ mode: 'ai', actions: parsed.actions.slice(0, 5) });
   } catch {
-    return NextResponse.json({ mode: 'rules', actions: fallback });
+    return NextResponse.json({ mode: 'local', actions: fallback });
   }
 }
