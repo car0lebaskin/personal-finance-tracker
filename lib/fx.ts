@@ -6,6 +6,8 @@ const coinIds: Record<string, string> = {
   ETH: 'ethereum',
 };
 
+const fiatCodes = ['USD', 'SGD', 'EUR'];
+
 export async function getMyrRate(currency: string): Promise<FxResult> {
   const code = currency.toUpperCase();
   if (code === 'MYR') return { rate: 1, source: 'Manual', updatedAt: new Date().toISOString() };
@@ -19,12 +21,16 @@ export async function getMyrRate(currency: string): Promise<FxResult> {
     return { rate, source: 'CoinGecko', updatedAt: new Date().toISOString() };
   }
 
-  const response = await fetch(`https://api.frankfurter.app/latest?from=${code}&to=MYR`, { cache: 'no-store' });
-  if (!response.ok) throw new Error('Unable to fetch currency rate.');
-  const data = await response.json();
-  const rate = Number(data?.rates?.MYR);
-  if (!rate) throw new Error('Currency rate unavailable.');
-  return { rate, source: 'Frankfurter', updatedAt: new Date().toISOString() };
+  if (fiatCodes.includes(code)) {
+    const response = await fetch(`https://open.er-api.com/v6/latest/${code}`, { cache: 'no-store' });
+    if (!response.ok) throw new Error('Unable to fetch fiat rate.');
+    const data = await response.json();
+    const rate = Number(data?.rates?.MYR);
+    if (!rate) throw new Error('MYR fiat rate unavailable.');
+    return { rate, source: 'ExchangeRate-API', updatedAt: data?.time_last_update_utc ? new Date(data.time_last_update_utc).toISOString() : new Date().toISOString() };
+  }
+
+  throw new Error(`${code} live rate is not supported yet.`);
 }
 
 export function prettyRateTime(value?: string) {
