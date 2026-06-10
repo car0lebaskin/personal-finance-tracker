@@ -20,7 +20,8 @@ function isCrypto(account: Account) { return account.type === 'crypto' || ['BTC'
 
 export default function DashboardActionCards({ accounts, snapshots, nextMilestone, milestoneGap, hidden }: Props) {
   const router = useRouter();
-  const latestSnapshotDate = [...new Set(snapshots.map((snap) => snap.snapshot_date))].sort().at(-1);
+  const snapshotDates = Array.from(new Set(snapshots.map((snap) => snap.snapshot_date))).sort();
+  const latestSnapshotDate = snapshotDates.length ? snapshotDates[snapshotDates.length - 1] : undefined;
   const needsUpdate = latestSnapshotDate ? accounts.filter((account) => !snapshots.some((snap) => snap.account_id === account.id && snap.snapshot_date === latestSnapshotDate)).length : accounts.length;
   const cryptoCount = accounts.filter(isCrypto).length;
   const actions = useMemo(() => [
