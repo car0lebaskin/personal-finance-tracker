@@ -6,7 +6,13 @@ import { LockKeyhole, ShieldCheck } from 'lucide-react';
 const HASH_KEY = 'vault_lock_hash';
 const SALT_KEY = 'vault_lock_salt';
 const UNLOCK_KEY = 'vault_lock_time';
-const TIMEOUT_MS = 5 * 60 * 1000;
+const TIMEOUT_KEY = 'vault_lock_timeout_ms';
+const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+
+function timeoutMs() {
+  if (typeof window === 'undefined') return DEFAULT_TIMEOUT_MS;
+  return Number(localStorage.getItem(TIMEOUT_KEY) || DEFAULT_TIMEOUT_MS);
+}
 
 async function digest(text: string) {
   const bytes = new TextEncoder().encode(text);
@@ -26,7 +32,7 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem(HASH_KEY);
     const last = Number(sessionStorage.getItem(UNLOCK_KEY) || 0);
     setHasLock(Boolean(saved));
-    setOpen(Boolean(saved && Date.now() - last < TIMEOUT_MS));
+    setOpen(Boolean(saved && Date.now() - last < timeoutMs()));
     setReady(true);
   }, []);
 
@@ -34,7 +40,7 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
     if (!open) return;
     const timer = setInterval(() => {
       const last = Number(sessionStorage.getItem(UNLOCK_KEY) || 0);
-      if (Date.now() - last > TIMEOUT_MS) setOpen(false);
+      if (Date.now() - last > timeoutMs()) setOpen(false);
     }, 15000);
     const refresh = () => sessionStorage.setItem(UNLOCK_KEY, String(Date.now()));
     window.addEventListener('click', refresh);
