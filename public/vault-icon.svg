@@ -1,25 +1,26 @@
 <svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" rx="112" fill="#080B08"/>
+  <rect width="512" height="512" rx="112" fill="#070A07"/>
   <rect x="28" y="28" width="456" height="456" rx="96" fill="url(#bg)"/>
-  <circle cx="256" cy="232" r="154" fill="url(#glow)" opacity="0.72"/>
-  <path d="M166 231C166 181.294 206.294 141 256 141C305.706 141 346 181.294 346 231V248H309V231C309 201.729 285.271 178 256 178C226.729 178 203 201.729 203 231V248H166V231Z" fill="#A7FF4F"/>
-  <rect x="136" y="228" width="240" height="168" rx="44" fill="#F4F5EF"/>
-  <rect x="154" y="246" width="204" height="132" rx="32" fill="#10170E"/>
-  <circle cx="256" cy="311" r="42" fill="#A7FF4F"/>
-  <circle cx="256" cy="311" r="16" fill="#071006"/>
-  <path d="M256 327V354" stroke="#071006" stroke-width="14" stroke-linecap="round"/>
-  <path d="M178 99L211 132" stroke="#A7FF4F" stroke-width="18" stroke-linecap="round" opacity="0.92"/>
-  <path d="M334 99L301 132" stroke="#A7FF4F" stroke-width="18" stroke-linecap="round" opacity="0.92"/>
-  <path d="M118 318C152 422 281 465 377 396" stroke="#A7FF4F" stroke-width="16" stroke-linecap="round" opacity="0.18"/>
+  <circle cx="256" cy="256" r="164" stroke="#A7FF4F" stroke-width="18" opacity="0.18"/>
+  <circle cx="256" cy="256" r="122" stroke="#F4F5EF" stroke-width="10" opacity="0.10"/>
+  <path d="M153 158L236 360C243.5 378.2 268.5 378.2 276 360L359 158H305L256 287L207 158H153Z" fill="#A7FF4F"/>
+  <path d="M207 158L256 287L305 158H359L276 360C268.5 378.2 243.5 378.2 236 360L153 158H207Z" fill="url(#vGlow)" opacity="0.95"/>
+  <circle cx="256" cy="256" r="18" fill="#F4F5EF" opacity="0.92"/>
+  <path d="M256 222V184" stroke="#F4F5EF" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+  <path d="M256 328V290" stroke="#F4F5EF" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+  <path d="M222 256H184" stroke="#F4F5EF" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+  <path d="M328 256H290" stroke="#F4F5EF" stroke-width="14" stroke-linecap="round" opacity="0.9"/>
+  <path d="M116 392C170 441 259 459 344 421" stroke="#A7FF4F" stroke-width="16" stroke-linecap="round" opacity="0.16"/>
   <defs>
-    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 64) rotate(90) scale(420)">
-      <stop stop-color="#1D2817"/>
-      <stop offset="0.55" stop-color="#0C120A"/>
-      <stop offset="1" stop-color="#080B08"/>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 72) rotate(90) scale(430)">
+      <stop stop-color="#1B2816"/>
+      <stop offset="0.48" stop-color="#0E140C"/>
+      <stop offset="1" stop-color="#070A07"/>
     </radialGradient>
-    <radialGradient id="glow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 232) rotate(90) scale(154)">
-      <stop stop-color="#A7FF4F" stop-opacity="0.22"/>
-      <stop offset="1" stop-color="#A7FF4F" stop-opacity="0"/>
-    </radialGradient>
+    <linearGradient id="vGlow" x1="153" y1="158" x2="358" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#D8FF9B"/>
+      <stop offset="0.5" stop-color="#A7FF4F"/>
+      <stop offset="1" stop-color="#6BE86A"/>
+    </linearGradient>
   </defs>
 </svg>
