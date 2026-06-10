@@ -5,10 +5,32 @@ import { useRouter } from 'next/navigation';
 import { ArrowLeft, Download, LogOut, UserCircle } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 
+type Row = Record<string, string | number | boolean | null>;
+
+function csvValue(value: unknown) {
+  if (value === null || value === undefined) return '';
+  const text = String(value).replace(/"/g, '""');
+  return `"${text}"`;
+}
+
+function downloadCsv(filename: string, rows: Row[]) {
+  const headers = rows.length ? Object.keys(rows[0]) : ['empty'];
+  const csv = [headers.join(','), ...rows.map((row) => headers.map((header) => csvValue(row[header])).join(','))].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
 export default function ProfilePage() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+  const [status, setStatus] = useState('');
 
   useEffect(() => {
     async function load() {
@@ -19,6 +41,19 @@ export default function ProfilePage() {
     }
     load();
   }, [router]);
+
+  async function exportData() {
+    setExporting(true);
+    setStatus('');
+    const accounts = await supabase.from('accounts').select('*').order('created_at', { ascending: false });
+    const snapshots = await supabase.from('account_snapshots').select('*').order('snapshot_date', { ascending: true });
+    setExporting(false);
+    if (accounts.error) { setStatus(accounts.error.message); return; }
+    if (snapshots.error) { setStatus(snapshots.error.message); return; }
+    downloadCsv(`vault-accounts-${new Date().toISOString().slice(0,10)}.csv`, (accounts.data || []) as Row[]);
+    downloadCsv(`vault-snapshots-${new Date().toISOString().slice(0,10)}.csv`, (snapshots.data || []) as Row[]);
+    setStatus('Export downloaded: accounts + snapshots.');
+  }
 
   async function signOut() {
     await supabase.auth.signOut();
@@ -57,9 +92,10 @@ export default function ProfilePage() {
             </div>
           </section>
 
-          <button className="w-full rounded-[20px] bg-white/[0.05] border border-white/8 px-4 py-4 flex items-center justify-between mb-3 text-left">
-            <span><b className="block text-sm">Export data</b><small className="text-[#a8aca3]">CSV export coming next</small></span><Download className="h-5 w-5 text-[#a7ff4f]" />
+          <button onClick={exportData} disabled={exporting} className="w-full rounded-[20px] bg-white/[0.05] border border-white/8 px-4 py-4 flex items-center justify-between mb-3 text-left disabled:opacity-60">
+            <span><b className="block text-sm">Export data</b><small className="text-[#a8aca3]">Download accounts and snapshots as CSV</small></span><Download className="h-5 w-5 text-[#a7ff4f]" />
           </button>
+          {status && <p className="text-xs text-[#a8aca3] mb-4">{status}</p>}
 
           <button onClick={signOut} className="w-full rounded-[20px] bg-red-500/10 border border-red-500/20 px-4 py-4 flex items-center justify-between text-left text-red-100">
             <span><b className="block text-sm">Log out</b><small className="text-red-200/70">Sign out of Vault</small></span><LogOut className="h-5 w-5" />
