@@ -9,6 +9,8 @@ export type Account = {
   type: string;
   balance: number;
   currency: string;
+  native_balance?: number | null;
+  fx_rate?: number | null;
 };
 
 export type Totals = {
@@ -21,6 +23,13 @@ export type Totals = {
   property: number;
   netWorth: number;
 };
+
+export function nativeDisplay(account: Account) {
+  const currency = account.currency || 'MYR';
+  const native = account.native_balance ?? account.balance;
+  if (currency === 'MYR') return null;
+  return `${new Intl.NumberFormat('en-MY', { maximumFractionDigits: 6 }).format(Number(native || 0))} ${currency}`;
+}
 
 export function getTotals(accounts: Account[]): Totals {
   const assets = accounts.filter((a) => !liabilityTypes.includes(a.type)).reduce((s, a) => s + Number(a.balance), 0);
