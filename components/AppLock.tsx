@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import type { ReactNode } from 'react';
 import { LockKeyhole, ShieldCheck } from 'lucide-react';
 
 const HASH_KEY = 'vault_lock_hash';
@@ -20,7 +21,7 @@ async function digest(text: string) {
   return Array.from(new Uint8Array(hash)).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-export default function AppLock({ children }: { children: React.ReactNode }) {
+export default function AppLock({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [hasLock, setHasLock] = useState(false);
   const [open, setOpen] = useState(false);
@@ -79,5 +80,5 @@ export default function AppLock({ children }: { children: React.ReactNode }) {
   if (!ready) return <main className="min-h-screen bg-[#080b08] flex items-center justify-center text-[#d8ded2] text-sm">Loading...</main>;
   if (open) return <>{children}</>;
 
-  return <main className="min-h-screen bg-[#080b08] text-[#f4f5ef] flex items-center justify-center px-5"><div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_-10%,rgba(148,255,97,0.14),transparent_34%),linear-gradient(180deg,#182016_0%,#080b08_48%)]"/><section className="relative w-full max-w-[420px] rounded-[30px] border border-white/10 bg-white/[0.05] p-6 shadow-2xl"><div className="h-14 w-14 rounded-2xl bg-[#a7ff4f]/15 flex items-center justify-center mb-5">{hasLock ? <LockKeyhole className="h-7 w-7 text-[#a7ff4f]"/> : <ShieldCheck className="h-7 w-7 text-[#a7ff4f]"/>}</div><h1 className="text-2xl font-semibold">{hasLock ? 'Unlock Vault' : 'Create Vault code'}</h1><p className="text-sm text-[#a8aca3] mt-2 mb-6">{hasLock ? 'Enter your code to continue.' : 'Your code hash is stored only in this browser.'}</p><input inputMode="numeric" type="password" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Code" className="w-full rounded-2xl bg-black/25 border border-white/10 px-4 py-4 outline-none text-xl tracking-[0.35em] mb-3"/>{!hasLock && <input inputMode="numeric" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Confirm" className="w-full rounded-2xl bg-black/25 border border-white/10 px-4 py-4 outline-none text-xl tracking-[0.35em] mb-3"/>}{error && <p className="text-sm text-red-200 mb-3">{error}</p>}<button onClick={hasLock ? unlock : setup} className="w-full rounded-2xl bg-[#a7ff4f] text-[#071006] py-4 font-bold">{hasLock ? 'Unlock' : 'Save code'}</button></section></main>;
+  return <main className="min-h-screen bg-[#080b08] text-[#f4f5ef] flex items-center justify-center px-5"><div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_50%_-12%,rgba(148,255,97,0.10),transparent_30%),linear-gradient(180deg,#12190f_0%,#080b08_46%)]"/><section className="relative w-full max-w-[340px] rounded-[24px] border border-white/10 bg-white/[0.045] p-4 shadow-xl"><div className="flex items-center gap-3 mb-4"><div className="h-10 w-10 rounded-2xl bg-[#a7ff4f]/14 flex items-center justify-center shrink-0">{hasLock ? <LockKeyhole className="h-5 w-5 text-[#a7ff4f]"/> : <ShieldCheck className="h-5 w-5 text-[#a7ff4f]"/>}</div><div><h1 className="text-lg font-semibold leading-tight">{hasLock ? 'Unlock Vault' : 'Create Vault code'}</h1><p className="text-xs text-[#8d9188] mt-0.5">{hasLock ? 'Enter your code.' : 'Stored only on this device.'}</p></div></div><input inputMode="numeric" type="password" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Code" className="w-full rounded-2xl bg-black/25 border border-white/10 px-4 py-3 outline-none text-lg tracking-[0.28em] mb-2"/>{!hasLock && <input inputMode="numeric" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value.replace(/\D/g, '').slice(0, 8))} placeholder="Confirm" className="w-full rounded-2xl bg-black/25 border border-white/10 px-4 py-3 outline-none text-lg tracking-[0.28em] mb-2"/>}{error && <p className="text-xs text-red-200 mb-2">{error}</p>}<button onClick={hasLock ? unlock : setup} className="w-full rounded-2xl bg-[#a7ff4f] text-[#071006] py-3 font-bold text-sm">{hasLock ? 'Unlock' : 'Save code'}</button></section></main>;
 }
