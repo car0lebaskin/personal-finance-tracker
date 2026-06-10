@@ -1,6 +1,8 @@
 -- Vault advanced schema
--- Run this in Supabase SQL Editor.
--- Existing accounts/account_snapshots tables are not recreated here.
+-- Copy everything in this file into Supabase SQL Editor and run it.
+-- Do not paste the filename/path.
+
+create extension if not exists pgcrypto;
 
 create table if not exists public.contribution_entries (
   id uuid primary key default gen_random_uuid(),
@@ -60,31 +62,46 @@ alter table public.contribution_entries enable row level security;
 alter table public.recurring_contributions enable row level security;
 alter table public.account_links enable row level security;
 alter table public.goals enable row level security;
-
--- crypto_price_cache contains public market prices. It is intentionally readable.
 alter table public.crypto_price_cache enable row level security;
 
-create policy if not exists "Users can read own contribution entries" on public.contribution_entries for select using (auth.uid() = user_id);
-create policy if not exists "Users can insert own contribution entries" on public.contribution_entries for insert with check (auth.uid() = user_id);
-create policy if not exists "Users can update own contribution entries" on public.contribution_entries for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "Users can delete own contribution entries" on public.contribution_entries for delete using (auth.uid() = user_id);
+drop policy if exists "Users can read own contribution entries" on public.contribution_entries;
+drop policy if exists "Users can insert own contribution entries" on public.contribution_entries;
+drop policy if exists "Users can update own contribution entries" on public.contribution_entries;
+drop policy if exists "Users can delete own contribution entries" on public.contribution_entries;
+create policy "Users can read own contribution entries" on public.contribution_entries for select using (auth.uid() = user_id);
+create policy "Users can insert own contribution entries" on public.contribution_entries for insert with check (auth.uid() = user_id);
+create policy "Users can update own contribution entries" on public.contribution_entries for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users can delete own contribution entries" on public.contribution_entries for delete using (auth.uid() = user_id);
 
-create policy if not exists "Users can read own recurring contributions" on public.recurring_contributions for select using (auth.uid() = user_id);
-create policy if not exists "Users can insert own recurring contributions" on public.recurring_contributions for insert with check (auth.uid() = user_id);
-create policy if not exists "Users can update own recurring contributions" on public.recurring_contributions for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "Users can delete own recurring contributions" on public.recurring_contributions for delete using (auth.uid() = user_id);
+drop policy if exists "Users can read own recurring contributions" on public.recurring_contributions;
+drop policy if exists "Users can insert own recurring contributions" on public.recurring_contributions;
+drop policy if exists "Users can update own recurring contributions" on public.recurring_contributions;
+drop policy if exists "Users can delete own recurring contributions" on public.recurring_contributions;
+create policy "Users can read own recurring contributions" on public.recurring_contributions for select using (auth.uid() = user_id);
+create policy "Users can insert own recurring contributions" on public.recurring_contributions for insert with check (auth.uid() = user_id);
+create policy "Users can update own recurring contributions" on public.recurring_contributions for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users can delete own recurring contributions" on public.recurring_contributions for delete using (auth.uid() = user_id);
 
-create policy if not exists "Users can read own account links" on public.account_links for select using (auth.uid() = user_id);
-create policy if not exists "Users can insert own account links" on public.account_links for insert with check (auth.uid() = user_id);
-create policy if not exists "Users can update own account links" on public.account_links for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "Users can delete own account links" on public.account_links for delete using (auth.uid() = user_id);
+drop policy if exists "Users can read own account links" on public.account_links;
+drop policy if exists "Users can insert own account links" on public.account_links;
+drop policy if exists "Users can update own account links" on public.account_links;
+drop policy if exists "Users can delete own account links" on public.account_links;
+create policy "Users can read own account links" on public.account_links for select using (auth.uid() = user_id);
+create policy "Users can insert own account links" on public.account_links for insert with check (auth.uid() = user_id);
+create policy "Users can update own account links" on public.account_links for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users can delete own account links" on public.account_links for delete using (auth.uid() = user_id);
 
-create policy if not exists "Users can read own goals" on public.goals for select using (auth.uid() = user_id);
-create policy if not exists "Users can insert own goals" on public.goals for insert with check (auth.uid() = user_id);
-create policy if not exists "Users can update own goals" on public.goals for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
-create policy if not exists "Users can delete own goals" on public.goals for delete using (auth.uid() = user_id);
+drop policy if exists "Users can read own goals" on public.goals;
+drop policy if exists "Users can insert own goals" on public.goals;
+drop policy if exists "Users can update own goals" on public.goals;
+drop policy if exists "Users can delete own goals" on public.goals;
+create policy "Users can read own goals" on public.goals for select using (auth.uid() = user_id);
+create policy "Users can insert own goals" on public.goals for insert with check (auth.uid() = user_id);
+create policy "Users can update own goals" on public.goals for update using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "Users can delete own goals" on public.goals for delete using (auth.uid() = user_id);
 
-create policy if not exists "Anyone can read crypto price cache" on public.crypto_price_cache for select using (true);
+drop policy if exists "Anyone can read crypto price cache" on public.crypto_price_cache;
+create policy "Anyone can read crypto price cache" on public.crypto_price_cache for select using (true);
 
 create index if not exists contribution_entries_user_date_idx on public.contribution_entries(user_id, entry_date desc);
 create index if not exists recurring_contributions_user_active_idx on public.recurring_contributions(user_id, active);
