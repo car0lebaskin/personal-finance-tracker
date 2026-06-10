@@ -12,6 +12,9 @@ create table if not exists public.contribution_entries (
   amount numeric not null default 0,
   note text,
   recurring_id uuid,
+  crypto_symbol text,
+  crypto_amount numeric,
+  crypto_myr_rate numeric,
   created_at timestamptz not null default now()
 );
 
@@ -65,6 +68,9 @@ alter table public.contribution_entries add column if not exists category text d
 alter table public.contribution_entries add column if not exists amount numeric not null default 0;
 alter table public.contribution_entries add column if not exists note text;
 alter table public.contribution_entries add column if not exists recurring_id uuid;
+alter table public.contribution_entries add column if not exists crypto_symbol text;
+alter table public.contribution_entries add column if not exists crypto_amount numeric;
+alter table public.contribution_entries add column if not exists crypto_myr_rate numeric;
 alter table public.contribution_entries add column if not exists created_at timestamptz not null default now();
 
 alter table public.recurring_contributions add column if not exists user_id uuid references auth.users(id) on delete cascade;
@@ -136,6 +142,7 @@ drop policy if exists "Anyone can read crypto price cache" on public.crypto_pric
 create policy "Anyone can read crypto price cache" on public.crypto_price_cache for select using (true);
 
 create index if not exists contribution_entries_user_date_idx on public.contribution_entries(user_id, entry_date desc);
+create index if not exists contribution_entries_crypto_idx on public.contribution_entries(user_id, crypto_symbol);
 create index if not exists recurring_contributions_user_active_idx on public.recurring_contributions(user_id, active);
 create index if not exists account_links_user_asset_idx on public.account_links(user_id, asset_account_id);
 create index if not exists goals_user_category_idx on public.goals(user_id, category);
