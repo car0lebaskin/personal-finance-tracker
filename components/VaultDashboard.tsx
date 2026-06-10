@@ -13,6 +13,8 @@ type Tab = 'accounts' | 'coach' | 'portfolio';
 type Filter = 'all' | 'cash' | 'investment' | 'crypto' | 'retirement' | 'property' | 'loan';
 type Snapshot = { account_id: string; snapshot_date: string; balance: number };
 
+type CoachResponse = { mode?: string; actions?: CoachAction[]; error?: string };
+
 const filters: { value: Filter; label: string; types?: string[] }[] = [
   { value: 'all', label: 'All' },
   { value: 'cash', label: 'Cash', types: ['checking', 'savings', 'cash'] },
@@ -102,24 +104,20 @@ export default function VaultDashboard() {
     const useDate = today();
     const usage = coachUsage();
     const count = usage.date === useDate ? usage.count || 0 : 0;
-    if (count >= COACH_DAILY_LIMIT) {
-      setCoachMessage(`Daily AI limit reached (${COACH_DAILY_LIMIT}). Local review is still active.`);
-      setCoachMode('local');
-      return;
-    }
+    if (count >= COACH_DAILY_LIMIT) { setCoachMessage(`Daily AI limit reached (${COACH_DAILY_LIMIT}). Local review is still active.`); setCoachMode('local'); return; }
     localStorage.setItem(COACH_LIMIT_KEY, JSON.stringify({ date: useDate, count: count + 1 }));
     setCoachLoading(true);
     setCoachMessage('Refreshing with privacy-limited AI summary...');
     try {
       const response = await fetch('/api/coach', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ accounts }) });
-      const data = await response.json();
+      const data = await response.json() as CoachResponse;
       setCoach(Array.isArray(data.actions) ? data.actions : buildPortfolioCoach(accounts));
       setCoachMode(data.mode === 'ai' ? 'ai' : 'local');
-      setCoachMessage(data.mode === 'ai' ? `AI mode active. ${COACH_DAILY_LIMIT - count - 1} AI refreshes left today.` : 'AI unavailable. Local review is active.');
-    } catch {
+      setCoachMessage(data.mode === 'ai' ? `AI mode active. ${COACH_DAILY_LIMIT - count - 1} AI refreshes left today.` : data.error || 'AI unavailable. Local review is active.');
+    } catch (error) {
       setCoach(buildPortfolioCoach(accounts));
       setCoachMode('local');
-      setCoachMessage('AI unavailable. Local review is active.');
+      setCoachMessage(error instanceof Error ? error.message : 'AI unavailable. Local review is active.');
     }
     setCoachLoading(false);
   }
