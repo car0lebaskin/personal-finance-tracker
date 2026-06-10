@@ -15,7 +15,7 @@ import DashboardActionCards from '@/components/DashboardActionCards';
 type Tab = 'accounts' | 'insights' | 'portfolio';
 type Filter = 'all' | 'cash' | 'investment' | 'crypto' | 'retirement' | 'property' | 'loan';
 type Range = '1M' | '3M' | '6M' | '1Y' | 'All';
-type VaultAccount = Account & { liquidity?: number | null; native_balance?: number | null; fx_rate?: number | null; currency?: string | null };
+type VaultAccount = Account & { liquidity?: number | null };
 type CacheData = { accounts: VaultAccount[]; snapshots: SnapshotPoint[] };
 type CoachResponse = { mode?: string; actions?: CoachAction[]; error?: string };
 
