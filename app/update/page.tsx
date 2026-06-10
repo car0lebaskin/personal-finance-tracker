@@ -36,10 +36,16 @@ function TodayUpdateContent() {
     async function load() {
       const session = await supabase.auth.getSession();
       if (!session.data.session) { router.push('/login'); return; }
-      let result = await supabase.from('accounts').select('id,name,institution,type,balance,currency,native_balance,fx_rate').order('created_at', { ascending: false });
-      if (result.error && result.error.message.toLowerCase().includes('native_balance')) result = await supabase.from('accounts').select('id,name,institution,type,balance,currency').order('created_at', { ascending: false });
-      if (!result.error && result.data) {
-        const items = result.data as Account[];
+      const fullResult = await supabase.from('accounts').select('id,name,institution,type,balance,currency,native_balance,fx_rate').order('created_at', { ascending: false });
+      let items: Account[] = [];
+      if (!fullResult.error && fullResult.data) items = fullResult.data as Account[];
+      else if (fullResult.error?.message.toLowerCase().includes('native_balance')) {
+        const fallbackResult = await supabase.from('accounts').select('id,name,institution,type,balance,currency').order('created_at', { ascending: false });
+        if (!fallbackResult.error && fallbackResult.data) items = fallbackResult.data as Account[];
+      } else if (fullResult.error) {
+        setStatus(fullResult.error.message);
+      }
+      if (items.length) {
         setAccounts(items);
         const next: Record<string, Draft> = {};
         items.forEach((account) => {
