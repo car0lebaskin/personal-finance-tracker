@@ -1,12 +1,12 @@
 'use client';
 
 import AppLock from '@/components/AppLock';
-import VaultDashboardCoach from '@/components/VaultDashboardCoach';
+import VaultDashboard from '@/components/VaultDashboard';
 
 export default function Page() {
   return (
     <AppLock>
-      <VaultDashboardCoach />
+      <VaultDashboard />
     </AppLock>
   );
 }
