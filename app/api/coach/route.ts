@@ -8,6 +8,17 @@ function safePercent(value: number, base: number) {
   return Math.round((value / base) * 100);
 }
 
+function friendlyOpenAiError(status: number, bodyText: string) {
+  const lower = bodyText.toLowerCase();
+  if (status === 401) return 'OpenAI key rejected. Check that OPENAI_API_KEY is correct and redeploy Vercel.';
+  if (status === 403) return 'OpenAI key does not have access to this model or project.';
+  if (status === 404) return 'OpenAI model not found. Try removing OPENAI_MODEL or set it to gpt-4o-mini.';
+  if (status === 429 && (lower.includes('quota') || lower.includes('billing'))) return 'OpenAI quota or billing is not active for this API key.';
+  if (status === 429) return 'OpenAI rate limit reached. Try again later.';
+  if (status >= 500) return 'OpenAI service issue. Try again later.';
+  return `OpenAI request failed with status ${status}.`;
+}
+
 export async function POST(request: Request) {
   let accounts: Account[] = [];
   try {
@@ -19,7 +30,7 @@ export async function POST(request: Request) {
 
   const fallback = buildPortfolioCoach(accounts);
   const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) return NextResponse.json({ mode: 'local', actions: fallback });
+  if (!apiKey) return NextResponse.json({ mode: 'local', actions: fallback, error: 'OPENAI_API_KEY is missing in Vercel Production environment variables.' });
 
   const totals = getTotals(accounts);
   const summary = {
@@ -61,16 +72,20 @@ export async function POST(request: Request) {
       }),
     });
 
-    if (!response.ok) throw new Error('AI coach unavailable.');
+    if (!response.ok) {
+      const bodyText = await response.text();
+      return NextResponse.json({ mode: 'local', actions: fallback, error: friendlyOpenAiError(response.status, bodyText) });
+    }
+
     const data = await response.json();
     const text = String(data?.choices?.[0]?.message?.content || '');
     const jsonStart = text.indexOf('{');
     const jsonEnd = text.lastIndexOf('}');
-    if (jsonStart === -1 || jsonEnd === -1) throw new Error('Invalid AI response.');
+    if (jsonStart === -1 || jsonEnd === -1) throw new Error('OpenAI responded, but did not return readable JSON.');
     const parsed = JSON.parse(text.slice(jsonStart, jsonEnd + 1));
-    if (!Array.isArray(parsed.actions)) throw new Error('Invalid AI response.');
+    if (!Array.isArray(parsed.actions)) throw new Error('OpenAI response did not include actions.');
     return NextResponse.json({ mode: 'ai', actions: parsed.actions.slice(0, 5) });
-  } catch {
-    return NextResponse.json({ mode: 'local', actions: fallback });
+  } catch (error) {
+    return NextResponse.json({ mode: 'local', actions: fallback, error: error instanceof Error ? error.message : 'AI request failed.' });
   }
 }
